@@ -1,15 +1,9 @@
-"""Musixmatch LRC provider"""
-
-from typing import Optional, List
+import os
 import time
 import json
-import os
+from typing import Optional, List
 from .base import LRCProvider
 from ..utils import get_best_match
-
-# Inspired from https://github.com/Marekkon5/onetagger/blob/0654131188c4df2b4b171ded7cdb927a4369746e/crates/onetagger-platforms/src/musixmatch.rs
-# Huge part converted from Rust to Py by ChatGPT :)
-
 
 class Musixmatch(LRCProvider):
     """Musixmatch provider class"""
@@ -39,30 +33,25 @@ class Musixmatch(LRCProvider):
         return response
 
     def _get_token(self):
-        # Check if token is cached and not expired
-        token_path = os.path.join(".syncedlyrics", "musixmatch_token.json")
         current_time = int(time.time())
-        if os.path.exists(token_path):
-            with open(token_path, "r") as token_file:
-                cached_token_data = json.load(token_file)
-            cached_token = cached_token_data.get("token")
-            expiration_time = cached_token_data.get("expiration_time")
-            if cached_token and expiration_time and current_time < expiration_time:
-                self.token = cached_token
-                return
-        # Token not cached or expired, fetch a new token
+        cached_token = os.environ.get("MUSIXMATCH_TOKEN")
+        expiration_time = int(os.environ.get("MUSIXMATCH_TOKEN_EXPIRATION", 0))
+        
+        if cached_token and expiration_time > current_time:
+            self.token = cached_token
+            return
+
         d = self._get("token.get", [("user_language", "en")]).json()
         if d["message"]["header"]["status_code"] == 401:
             time.sleep(10)
             return self._get_token()
+
         new_token = d["message"]["body"]["user_token"]
         expiration_time = current_time + 600  # 10 minutes expiration
-        # Cache the new token
-        self.token = new_token
-        token_data = {"token": new_token, "expiration_time": expiration_time}
-        os.makedirs(".syncedlyrics", exist_ok=True)
-        with open(token_path, "w") as token_file:
-            json.dump(token_data, token_file)
+
+        # Cache the new token using environment variables
+        os.environ["MUSIXMATCH_TOKEN"] = new_token
+        os.environ["MUSIXMATCH_TOKEN_EXPIRATION"] = str(expiration_time)
 
     def get_lrc_by_id(self, track_id: str) -> Optional[str]:
         r = self._get(
