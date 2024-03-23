@@ -7,14 +7,8 @@ class LRCProvider:
     Base class for all of the synced (LRC format) lyrics providers.
     """
 
-    session = requests.Session()
-
     def __init__(self) -> None:
-        self.session.headers.update(
-            {
-                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
-            }
-        )
+        self.session = requests.Session()
 
     def get_lrc_by_id(self, track_id: str) -> Optional[str]:
         """
